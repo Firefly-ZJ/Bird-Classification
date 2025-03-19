@@ -59,8 +59,8 @@ def TEST(model_path):
     model.load_state_dict(torch.load(model_path, weights_only=True))
     model.eval()
 
-    total_correct = 0
     total_loss = 0.0
+    total_correct_max, total_correct_top3 = 0, 0
     criterion = CEloss_smooth(num_classes, smoothing=0.1)  # 与训练一致的损失函数
 
     ### 测试循环
@@ -74,26 +74,40 @@ def TEST(model_path):
                 # 计算损失
                 loss = criterion(outputs, labels)
                 total_loss += loss.item() * images.size(0)
-                # 计算准确率
-                _, preds = torch.max(outputs, 1)
-                total_correct += torch.sum(preds == labels).item()
+                # 计算准确率，max & top3
+                _, preds_max = torch.max(outputs, dim=1)
+                total_correct_max += torch.sum(preds_max == labels).item()
+
+                _, preds_top3 = torch.topk(outputs, k=3, dim=1)
+                correct_mask = torch.eq(preds_top3, labels.view(-1, 1))
+                total_correct_top3 += correct_mask.any(dim=1).sum().item()
 
                 pbar.update(1)
-                if torch.cuda.is_available(): torch.cuda.empty_cache()
 
     avg_loss = total_loss / len(test_dataset)
-    accuracy = total_correct / len(test_dataset)
+    accuracy_max = total_correct_max / len(test_dataset)
+    accuracy_top3 = total_correct_top3 / len(test_dataset)
     
     print(f"Test completed")
     print(f"Average Loss: {avg_loss:.4f}")
-    print(f"Accuracy: {accuracy*100:.2f}%")
+    print(f"Accuracy: top1={accuracy_max*100:.2f}%, top3={accuracy_top3*100:.2f}%")
 
 if __name__ == "__main__":
     rootPath = "./"
-    TEST(rootPath + "trained/" + "model_100.pth")
+    TEST(rootPath + "trained/" + "model_200.pth")
 
 # 50 epoch
-# Average Loss: 4.9194,  Accuracy: 17.15%
+# Average Loss: 4.9194
+# Accuracy: top1=17.15%, top3=30.32%
 
 # 100 epoch
-# Average Loss: 4.8491,  Accuracy: 18.35%
+# Average Loss: 4.8491
+# Accuracy: top1=18.35%, top3=30.00%
+
+# 150 epoch
+# Average Loss: 4.8121
+# Accuracy: top1=18.19%, top3=30.16%
+
+# 200 epoch
+# Average Loss: 4.8085
+# Accuracy: top1=18.35%, top3=30.34%

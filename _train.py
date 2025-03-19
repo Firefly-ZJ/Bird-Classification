@@ -121,7 +121,6 @@ def TRAIN(epochs:int=200):
         if epoch % 50 == 0:
             torch.save(model.state_dict(), rootPath+f"trained/model_{epoch}.pth")
             print("Model saved\n")
-            print()
         if torch.cuda.is_available(): torch.cuda.empty_cache()
 
     print("Training completed")
