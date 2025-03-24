@@ -9,17 +9,17 @@ import numpy as np
 
 from _BirdNet import BirdNet
 
-### ----- 数据预处理配置 -----
-Bilinear = transforms.InterpolationMode.BILINEAR
+### ---------- 数据预处理配置 ----------
+bilinear = transforms.InterpolationMode.BILINEAR
 addNoise = transforms.RandomApply(
     [transforms.Lambda(lambda x: x + torch.randn_like(x) * 0.01)],
     p=0.5)
 
 train_transform = transforms.Compose([
-    transforms.Resize(256, Bilinear),           # 短边缩放至256
-    transforms.RandomRotation(10, Bilinear),    # 随机旋转
+    transforms.Resize(256, bilinear),           # 短边缩放至256
+    transforms.RandomHorizontalFlip(p=0.3),     # 随机水平翻转
+    transforms.RandomRotation(15, bilinear),    # 随机旋转
     transforms.RandomCrop(224),                 # 中心裁剪224x224
-    transforms.RandomHorizontalFlip(),          # 随机水平翻转
     transforms.ToTensor(),
     addNoise,                                   # 添加高斯噪声  
     transforms.Normalize(mean=[0.485, 0.456, 0.406], 
@@ -34,7 +34,7 @@ test_transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225])
 ])
 
-### ----- 鸟类图像数据集 -----
+### ---------- 鸟类图像数据集 ----------
 class BirdDataset(Dataset):
     def __init__(self, root_dir, transform=None):
         self.dataset = ImageFolder(root_dir, transform=transform)
@@ -46,7 +46,7 @@ class BirdDataset(Dataset):
     def __getitem__(self, idx):
         return self.dataset[idx]
 
-### ----- 交叉熵损失 (标签平滑) -----
+### ---------- 交叉熵损失 (标签平滑) ----------
 class CEloss_smooth(nn.Module):
     """Cross entropy loss with label smoothing"""
     def __init__(self, num_classes:int, smoothing=0.1):
@@ -61,25 +61,25 @@ class CEloss_smooth(nn.Module):
             smooth_labels.scatter_(1, target.unsqueeze(1), 1 - self.smoothing)
         return torch.mean(-torch.sum(smooth_labels * log_prob, dim=-1))
 
-### ----- 学习率调度器 -----
+### ---------- 学习率调度器 ----------
 def create_scheduler(optimizer, num_epochs:int, warmup_epochs:int=5):
     """Create a learning rate scheduler with warmup and cosine annealing"""
     if not num_epochs > warmup_epochs: raise ValueError("num_epochs too small")
 
-    def lr_lambda(current:int):
+    def lr_lambda(current:int) -> float:
         if current < warmup_epochs: # Warmup阶段
             return (current + 1) / warmup_epochs
         else: # 余弦退火阶段
-            progress = (current-warmup_epochs) / (num_epochs-warmup_epochs)
+            progress = current / num_epochs
             return max(0.5 * (1 + np.cos(np.pi * progress)), 0.01)
     
     return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
-### ----- 训练 -----
-def TRAIN(epochs:int=200):
+### ---------- 训练 ----------
+def TRAIN(epochs):
     print("Training...")
-    num_classes = 350
-    batch_size, accu = 640, 4 # 梯度累积
+    num_classes = 380 # 380 > 373
+    batch_size, accumulation = 640, 2 # 梯度累积
     init_lr = 2e-3
 
     # 训练集加载
@@ -92,14 +92,15 @@ def TRAIN(epochs:int=200):
     model = BirdNet(num_classes).to(device)
     
     # 损失函数与优化器
-    criterion = CEloss_smooth(num_classes, smoothing=0.1)
-    optimizer = optim.AdamW(model.parameters(), lr=init_lr, weight_decay=0.01)
+    criterion = CEloss_smooth(num_classes)
+    optimizer = optim.AdamW(model.parameters(), init_lr, weight_decay=0.02)
     scheduler = create_scheduler(optimizer, num_epochs=epochs)
     
     for epoch in range(1, epochs+1):
         model.train()
         optimizer.zero_grad()
         epoch_loss = 0.0
+        epoch_accu = 0
         
         for step, (images, labels) in enumerate(train_loader):
             if torch.cuda.is_available(): torch.cuda.empty_cache()
@@ -108,16 +109,20 @@ def TRAIN(epochs:int=200):
             
             outputs = model(images)
             loss = criterion(outputs, labels)
-            epoch_loss += loss.item() * images.size(0)
-            loss = loss / accu # 梯度累积需平均损失
+            epoch_loss += loss.item() * images.size(0) #
+            _, preds_max = torch.max(outputs, dim=1)
+            epoch_accu += torch.sum(preds_max == labels).item() #
+
+            loss = loss / accumulation # 梯度累积需平均损失
             loss.backward()
-            if (step+1) % accu == 0 or (step+1) == len(train_loader):
+            if (step+1) % accumulation == 0 or (step+1) == len(train_loader):
                 optimizer.step() # 更新参数
                 optimizer.zero_grad()
         
         scheduler.step()
         epoch_loss = epoch_loss / len(train_dataset)
-        print(f"Epoch:{epoch}/{epochs},  Loss={epoch_loss:.4f}")
+        epoch_accu = epoch_accu / len(train_dataset) * 100
+        print(f"Epoch:{epoch}/{epochs},  Loss={epoch_loss:.4f},  Accu={epoch_accu:.2f}%")
         if epoch % 50 == 0:
             torch.save(model.state_dict(), rootPath+f"trained/model_{epoch}.pth")
             print("Model saved\n")
@@ -125,6 +130,7 @@ def TRAIN(epochs:int=200):
 
     print("Training completed")
 
+###
 if __name__ == "__main__":
     rootPath = "./"
-    TRAIN()
+    TRAIN(epochs=300)

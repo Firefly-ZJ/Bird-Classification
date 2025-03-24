@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
-import numpy as np
+#import numpy as np
 from tqdm import tqdm
 
 from _BirdNet import BirdNet
@@ -47,7 +47,7 @@ class CEloss_smooth(nn.Module):
 ### ----- 测试 -----
 def TEST(model_path):
     print("Testing...")
-    num_classes = 350
+    num_classes = 380
     batch_size = 128
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -83,6 +83,7 @@ def TEST(model_path):
                 total_correct_top3 += correct_mask.any(dim=1).sum().item()
 
                 pbar.update(1)
+                if torch.cuda.is_available(): torch.cuda.empty_cache()
 
     avg_loss = total_loss / len(test_dataset)
     accuracy_max = total_correct_max / len(test_dataset)
@@ -94,20 +95,10 @@ def TEST(model_path):
 
 if __name__ == "__main__":
     rootPath = "./"
-    TEST(rootPath + "trained/" + "model_200.pth")
+    TEST(rootPath + "trained/" + "model_100.pth")
 
-# 50 epoch
-# Average Loss: 4.9194
-# Accuracy: top1=17.15%, top3=30.32%
+# 50 epoch     Average Loss: 2.8024
+# Accuracy: top1=57.70%, top3=71.64%
 
-# 100 epoch
-# Average Loss: 4.8491
-# Accuracy: top1=18.35%, top3=30.00%
-
-# 150 epoch
-# Average Loss: 4.8121
-# Accuracy: top1=18.19%, top3=30.16%
-
-# 200 epoch
-# Average Loss: 4.8085
-# Accuracy: top1=18.35%, top3=30.34%
+# 100 epoch    Average Loss: 2.7526
+# Accuracy: top1=59.36%, top3=72.58%
