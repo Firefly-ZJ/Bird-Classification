@@ -7,6 +7,13 @@
 
 ![Data distribution](./photo_num.png)
 
+## Dataset Link
+
+https://disk.pku.edu.cn/link/AABC306D3787554C6BAF4C92652F54D21B
+文件夹名：BirdData
+有效期限：2035-04-30 23:59
+提取码：firefly
+
 ## Data Collection
 
 Bird photos are collected from iNaturalist (https://www.inaturalist.org) on 2025/03.

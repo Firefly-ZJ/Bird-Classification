@@ -11,7 +11,7 @@ This project aims to classify common bird species in China (373 species) with a 
 
 ## Image Dataset
 
-The image dataset is collected from iNaturalist. It contains ~ 220K images of 373 species, and 80% are used for training. Each species has at least 50 iamges. About details, please refer to ``species_list.csv``, and [Note.md](./birdData/Note.md).
+The image dataset is collected from iNaturalist. It contains ~ 220K images of 373 species, and 80% are used for training. Each species has at least 50 iamges. About details, please refer to ``species_list.csv``, and [*Note.md*](./birdData/Note.md).
 
 ## Model Details
 
@@ -21,13 +21,18 @@ The latest version has ~ 12M parameters. Its accuracy on test set reaches **59.3
 
 ## Usage
 
-- **Dataset**: The dataset is in ``birdData`` folder. Download it and unzip the packages, and then you can use it to train your own model.
+- Dataset Link: [*Click Here*](https://disk.pku.edu.cn/link/AABC306D3787554C6BAF4C92652F54D21B)
+password：firefly
+
+--------------------------------------------------
+
+- **Dataset**: The dataset is available on cloud disk. Download it to ``birdData`` folder and unzip the packages, then you can use it to train your own model.
 - **Training**: Run ``_train.py`` to train the model, and run ``_test.py`` to test trained model. Pretrained model is available in ``trained`` folder.
 - **Classification GUI**: Run ``BirdAPP.py``, and then you can easily classify your own image with our GUI. You can simply drag and drop your image to the window, or select your image from the file dialog.
 
 --------------------------------------------------
 
-- **数据集**: 数据集在``birdData``文件夹中。下载并解压后，您可以使用它来训练自己的模型。
+- **数据集**: 你可以从云盘中下载数据集。下载到``birdData``文件夹中并解压后，您可以使用它来训练自己的模型。
 - **训练**: 运行``_train.py``来训练模型，运行``_test.py``来测试训练好的模型。预训练模型在``trained``文件夹中。
 - **分类GUI**: 运行``BirdAPP.py``，然后您可以轻松地使用我们的GUI来识别自己的图像。您可以直接将图像拖放到窗口中，或者从文件对话框中选择图像。
 
@@ -50,5 +55,7 @@ This project is licensed under the MIT License.
 ## Acknowledgments
 
 The image dataset is exported from iNaturalist (https://www.inaturalist.org) on 2025/03.
+
+Please contact me if you have any suggestions or questions.
 
 Thanks for the help from open source community.
