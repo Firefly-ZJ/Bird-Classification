@@ -95,10 +95,22 @@ def TEST(model_path):
 
 if __name__ == "__main__":
     rootPath = "./"
-    TEST(rootPath + "trained/" + "model_100.pth")
+    TEST(rootPath + "trained/" + "model_200.pth")
 
+### ----- Ver 1.0 -----
 # 50 epoch     Average Loss: 2.8024
 # Accuracy: top1=57.70%, top3=71.64%
-
-# 100 epoch    Average Loss: 2.7526
+# *100 epoch   Average Loss: 2.7526
 # Accuracy: top1=59.36%, top3=72.58%
+# 150 epoch    Average Loss: 2.8158
+# Accuracy: top1=59.33%, top3=71.80%
+
+### ----- Ver 1.1 -----
+# 25 epoch    Average Loss: 2.7158
+# Accuracy: top1=60.87%, top3=73.43%
+# 50 epoch    Average Loss: 2.7229
+# Accuracy: top1=61.51%, top3=73.62%
+# 75 epoch    Average Loss: 2.7177
+# Accuracy: top1=61.92%, top3=74.01%
+# *100 epoch  Average Loss: 2.7141
+# Accuracy: top1=62.21%, top3=74.28%

@@ -178,7 +178,7 @@ class BirdGUI(QMainWindow):
         self.status_text.setText("识别完成")
 
 if __name__ == "__main__":
-    modelPath = "./trained/model_100.pth"
+    modelPath = "./trained/model_v1.1.pth"
     speciesPath = "./species_list.csv"
     classifier = BirdClassifier(modelPath, speciesPath)
 
