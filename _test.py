@@ -9,6 +9,9 @@ from tqdm import tqdm
 
 from _BirdNet import BirdNet
 
+device = torch.device("cuda" if torch.cuda.is_available()
+                      else "xpu" if torch.xpu.is_available() else"cpu")
+
 ### ----- 测试数据集 -----
 test_transform = transforms.Compose([
     transforms.Resize(256),
@@ -45,19 +48,16 @@ class CEloss_smooth(nn.Module):
         return torch.mean(-torch.sum(smooth_labels * log_prob, dim=-1))
 
 ### ----- 测试 -----
-def TEST(model_path):
-    print("Testing...")
+def TEST(model_path, batch_size=128):
     num_classes = 380
-    batch_size = 128
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     test_dataset = ImageFolder(rootPath+"birdData/val", transform=test_transform)
     test_loader = DataLoader(test_dataset, batch_size, shuffle=False)
     print(f"Test Size: {len(test_dataset)},  Batch Num: {len(test_loader)}")
 
-    model = BirdNet(num_classes).to(device)
-    model.load_state_dict(torch.load(model_path, weights_only=True))
-    model.eval()
+    model = BirdNet(num_classes)
+    model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
+    model.to(device).eval()
 
     total_loss = 0.0
     total_correct_max, total_correct_top3 = 0, 0
@@ -83,7 +83,6 @@ def TEST(model_path):
                 total_correct_top3 += correct_mask.any(dim=1).sum().item()
 
                 pbar.update(1)
-                if torch.cuda.is_available(): torch.cuda.empty_cache()
 
     avg_loss = total_loss / len(test_dataset)
     accuracy_max = total_correct_max / len(test_dataset)
@@ -93,9 +92,14 @@ def TEST(model_path):
     print(f"Average Loss: {avg_loss:.4f}")
     print(f"Accuracy: top1={accuracy_max*100:.2f}%, top3={accuracy_top3*100:.2f}%")
 
+    if torch.cuda.is_available(): torch.cuda.empty_cache()
+    elif torch.xpu.is_available(): torch.xpu.empty_cache()
+
 if __name__ == "__main__":
+    print("Testing BirdNet Model")
+    print("Device: ", device)
     rootPath = "./"
-    TEST(rootPath + "trained/" + "model_200.pth")
+    TEST(rootPath + "trained/model_v1.1.pth", batch_size=128)
 
 ### ----- Ver 1.0 -----
 # 50 epoch     Average Loss: 2.8024

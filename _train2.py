@@ -9,9 +9,6 @@ import numpy as np
 
 from _BirdNet import BirdNet
 
-device = torch.device("cuda" if torch.cuda.is_available()
-                      else "xpu" if torch.xpu.is_available() else "cpu")
-
 ### ---------- 数据预处理配置 ----------
 bilinear = transforms.InterpolationMode.BILINEAR
 addNoise = transforms.RandomApply(
@@ -79,17 +76,21 @@ def create_scheduler(optimizer, num_epochs:int, warmup_epochs:int=5):
     return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 ### ---------- 训练 ----------
-def TRAIN(epochs:int, batch_size:int, init_lr:float=2e-3, accumulation:int=1):
-    if not accumulation>=1: raise ValueError("accumulation must be >= 1")
+def TRAIN(epochs, pretrained=None):
     print("Training...")
-    # 训练集加载
     num_classes = 380 # 380 > 373
+    batch_size, accumulation = 640, 4 # 梯度累积
+    init_lr = 1e-3
+
+    # 训练集加载
     train_dataset = BirdDataset(rootPath+"birdData/train", transform=train_transform)
     train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
     print(f"Data Size: {len(train_dataset)},  Batch Num: {len(train_loader)}")
     
     # 模型初始化
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = BirdNet(num_classes).to(device)
+    if pretrained: model.load_state_dict(torch.load(rootPath+f"trained/{pretrained}", weights_only=True))
     
     # 损失函数与优化器
     criterion = CEloss_smooth(num_classes)
@@ -103,7 +104,6 @@ def TRAIN(epochs:int, batch_size:int, init_lr:float=2e-3, accumulation:int=1):
         epoch_accu = 0
         
         for step, (images, labels) in enumerate(train_loader):
-            if torch.cuda.is_available(): torch.cuda.empty_cache()
             images = images.to(device)
             labels = labels.to(device)
             
@@ -118,13 +118,15 @@ def TRAIN(epochs:int, batch_size:int, init_lr:float=2e-3, accumulation:int=1):
             if (step+1) % accumulation == 0 or (step+1) == len(train_loader):
                 optimizer.step() # 更新参数
                 optimizer.zero_grad()
+            del images, labels, outputs
+            if torch.cuda.is_available(): torch.cuda.empty_cache()
         
         scheduler.step()
         epoch_loss = epoch_loss / len(train_dataset)
         epoch_accu = epoch_accu / len(train_dataset) * 100
         print(f"Epoch:{epoch}/{epochs},  Loss={epoch_loss:.4f},  Accu={epoch_accu:.2f}%")
-        if epoch % 50 == 0:
-            torch.save(model.state_dict(), rootPath+f"trained/model_{epoch}.pth")
+        if epoch % 25 == 0:
+            torch.save(model.state_dict(), rootPath+f"trained/model_{epoch+150}.pth")
             print("Model saved\n")
         if torch.cuda.is_available(): torch.cuda.empty_cache()
 
@@ -133,4 +135,4 @@ def TRAIN(epochs:int, batch_size:int, init_lr:float=2e-3, accumulation:int=1):
 ###
 if __name__ == "__main__":
     rootPath = "./"
-    TRAIN(epochs=300, batch_size=640, init_lr=2e-3, accumulation=2)
+    TRAIN(epochs=100, pretrained="model_150.pth")

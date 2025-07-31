@@ -1,4 +1,4 @@
-#####     Bird APP     #####
+#####     Bird GUI     #####
 import sys
 import csv
 import torch
@@ -11,17 +11,18 @@ from PyQt5.QtGui import QPixmap, QDragEnterEvent, QDropEvent, QFont
 
 from _BirdNet import BirdNet
 
-### ----- 模型加载与预处理 -----
+### ----- 模型加载与预处理 ----- ###
 class BirdClassifier():
     """Args:
         model_path: Path to the trained model weights
         species_path: Path to the species-name file (CSV)
     """
     def __init__(self, model_path, species_path):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = BirdNet().to(self.device)
-        self.model.load_state_dict(torch.load(model_path, weights_only=True))
-        self.model.eval()
+        self.device = torch.device("cuda" if torch.cuda.is_available()
+                                   else "xpu" if torch.xpu.is_available() else "cpu")
+        self.model = BirdNet()
+        self.model.load_state_dict(torch.load(model_path, map_location="cpu", weights_only=True))
+        self.model.to(self.device).eval()
         
         self.speciesNames = []
         with open(species_path, "r", encoding="utf-8") as file:
@@ -58,7 +59,7 @@ class BirdClassifier():
         else:
             return self.unknown
 
-### ----- GUI线程 -----
+### ----- GUI线程 ----- ###
 class GUI_Thread(QThread):
     prediction_done = pyqtSignal(list)
 
@@ -75,7 +76,7 @@ class GUI_Thread(QThread):
         except Exception as e:
             self.prediction_done.emit([("Error", str(e))])
 
-### ----- 主界面 -----
+### ----- 主界面 ----- ###
 class BirdGUI(QMainWindow):
     """GUI Window for Bird Classifier"""
     def __init__(self, classifier:BirdClassifier):
@@ -177,12 +178,13 @@ class BirdGUI(QMainWindow):
         self.result_text.setHtml("<hr>".join(output))
         self.status_text.setText("识别完成")
 
+### ----- 主函数 ----- ###
 if __name__ == "__main__":
     modelPath = "./trained/model_v1.1.pth"
     speciesPath = "./species_list.csv"
     classifier = BirdClassifier(modelPath, speciesPath)
 
     app = QApplication(sys.argv)
-    ex = BirdGUI(classifier)
-    ex.show()
+    window = BirdGUI(classifier)
+    window.show()
     sys.exit(app.exec_())
