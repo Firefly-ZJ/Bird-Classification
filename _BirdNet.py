@@ -3,10 +3,10 @@ import torch
 import torch.nn as nn
 
 class ResBlock(nn.Module):
-    """Residual Block:
-    7x7 dwConv → LayerNorm → 1x1 Conv → ReLU → 1x1 Conv → LayerScale
-    """
     def __init__(self, dim:int, scale_init=1e-6):
+        """Residual Block:
+        7x7 dwConv → LN → 1x1 Conv → Act → 1x1 Conv → Scale
+        """
         super().__init__()
         self.scale_init = scale_init
         self.skip = nn.Identity() # skip connection
@@ -29,12 +29,12 @@ class ResBlock(nn.Module):
         return res + skip
 
 class DownSample(nn.Module):
-    """Downsample Block (with MaxPool)
-    Args:
-        in_dim (int): input channels
-        out_dim (int): output channels
-    """
     def __init__(self, in_dim:int, out_dim:int, height:int, width:int=0):
+        """Downsample Block (with MaxPool)
+        Args:
+            in_dim (int): input channels
+            out_dim (int): output channels
+        """
         super().__init__()
         if not width: width = height
         self.norm = nn.LayerNorm((in_dim, height, width), eps=1e-6)
@@ -48,29 +48,31 @@ class DownSample(nn.Module):
         return x
 
 class BirdNet(nn.Module):
-    """Network for Bird Classification
-    Args:
-        class_num (int): num of output classes (> real species)
-        dims (tuple): channels of each stage (default: 64 ··· 512))
-    """
-    def __init__(self, class_num:int=380, dims=(64, 128, 256, 512)):
+    def __init__(self, dims=(64, 128, 256, 512), layers=(3, 4, 6, 3), class_num:int=380):
+        """Network for Bird Classification
+        Args:
+            dims (tuple): channels of each stage
+            layers (tuple): num of blocks in each stage
+            class_num (int): num of output classes
+        """
+        if not (len(dims) == len(layers) == 4):
+            raise ValueError("Dims and layers must be 4 stages.")
         super().__init__()
         self.classNum = class_num
         
         self.stem = nn.Sequential(
             nn.Conv2d(3, dims[0], kernel_size=4, stride=4),
-            nn.LayerNorm((dims[0], 56, 56), eps=1e-6)
-            )
-        self.conv1 = nn.Sequential(*[ResBlock(dims[0]) for _ in range(3)])
+            nn.LayerNorm((dims[0], 56, 56), eps=1e-6))
+        self.conv1 = nn.Sequential(*[ResBlock(dims[0]) for _ in range(layers[0])]) # 56*56
 
         self.down2 = DownSample(dims[0], dims[1], 56, 56)
-        self.conv2 = nn.Sequential(*[ResBlock(dims[1]) for _ in range(4)])
+        self.conv2 = nn.Sequential(*[ResBlock(dims[1]) for _ in range(layers[1])]) # 28*28
         
         self.down3 = DownSample(dims[1], dims[2], 28, 28)
-        self.conv3 = nn.Sequential(*[ResBlock(dims[2]) for _ in range(6)])
+        self.conv3 = nn.Sequential(*[ResBlock(dims[2]) for _ in range(layers[2])]) # 14*14
         
         self.down4 = DownSample(dims[2], dims[3], 14, 14)
-        self.conv4 = nn.Sequential(*[ResBlock(dims[3]) for _ in range(3)])
+        self.conv4 = nn.Sequential(*[ResBlock(dims[3]) for _ in range(layers[3])]) # 7*7
         
         self.norm = nn.LayerNorm(dims[-1], eps=1e-6) # final norm layer
         self.head = nn.Linear(dims[-1], self.classNum)
@@ -84,6 +86,19 @@ class BirdNet(nn.Module):
         Sp = self.norm(x.mean([-2, -1])) # global average pooling -> (B, 512)
         Sp = self.head(Sp)  # [B, SpNum]
         return Sp
+
+def getModel(version:str, load_weight=False) -> BirdNet:
+    """BirdNet model loader. Supported versions:
+    - "v1-base": Version 1.1 (base size)
+    """
+    models = {"v1-base": "./trained/model_v1.1.pth"}
+    if version == "v1-base":
+        net = BirdNet(dims=(64, 128, 256, 512), layers=(3, 4, 6, 3))
+    else:
+        raise ValueError(f"Unsupported version: {version}")
+    if load_weight:
+        net.load_state_dict(torch.load(models[version], map_location="cpu", weights_only=True))
+    return net
 
 if __name__ == "__main__":
     from torchinfo import summary

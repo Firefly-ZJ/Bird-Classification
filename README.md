@@ -50,13 +50,19 @@ password：firefly
 - *Tqdm (not necessary for GUI)*
 - *Torchinfo (not necessary for GUI)*
 
+## Updates
+
+**Ver 0 -> Ver 1:**
+
+We have collected larger dataset and slightly changed the model architecture, and achieved great performance improvement.
+
 ## License
 
 This project is licensed under the MIT License.
 
 ## Acknowledgments
 
-The image dataset is exported from iNaturalist (https://www.inaturalist.org) on 2025/03.
+The image dataset is exported from [iNaturalist](https://www.inaturalist.org) on 2025/03.
 
 Please contact me if you have any suggestions or questions.
 
