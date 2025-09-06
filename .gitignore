@@ -24,7 +24,6 @@ ENV/
 !.vscode/extensions.json
 
 # ----- OS & cmd -----
-*.gitattributes
 *.exe
 *.bat
 *.sh
