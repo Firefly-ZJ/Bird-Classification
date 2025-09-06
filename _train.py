@@ -6,11 +6,12 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 import numpy as np
+from time import time
 
-from _BirdNet import BirdNet
+from _BirdNet import getModel
 
-device = torch.device("cuda" if torch.cuda.is_available()
-                      else "xpu" if torch.xpu.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else
+                      "xpu" if torch.xpu.is_available() else "cpu")
 
 ### ---------- 数据预处理配置 ----------
 bilinear = transforms.InterpolationMode.BILINEAR
@@ -37,18 +38,6 @@ test_transform = transforms.Compose([
                          std=[0.229, 0.224, 0.225])
 ])
 
-### ---------- 鸟类图像数据集 ----------
-class BirdDataset(Dataset):
-    def __init__(self, root_dir, transform=None):
-        self.dataset = ImageFolder(root_dir, transform=transform)
-        self.classes = self.dataset.classes
-        
-    def __len__(self):
-        return len(self.dataset)
-    
-    def __getitem__(self, idx):
-        return self.dataset[idx]
-
 ### ---------- 交叉熵损失 (标签平滑) ----------
 class CEloss_smooth(nn.Module):
     """Cross entropy loss with label smoothing"""
@@ -56,81 +45,125 @@ class CEloss_smooth(nn.Module):
         super().__init__()
         self.num_classes = num_classes
         self.smoothing = smoothing
+        self.log_softmax = nn.LogSoftmax(dim=-1)
         
     def forward(self, pred, target):
-        log_prob = torch.log_softmax(pred, dim=-1)
+        log_prob = self.log_softmax(pred)
         with torch.no_grad():
             smooth_labels = torch.full_like(log_prob, self.smoothing / (self.num_classes-1))
-            smooth_labels.scatter_(1, target.unsqueeze(1), 1 - self.smoothing)
+            smooth_labels.scatter_(1, target.unsqueeze(1), 1-self.smoothing)
         return torch.mean(-torch.sum(smooth_labels * log_prob, dim=-1))
 
 ### ---------- 学习率调度器 ----------
-def create_scheduler(optimizer, num_epochs:int, warmup_epochs:int=5):
+def create_scheduler(optimizer, total_epochs:int, warmup_epochs:int=5):
     """Create a learning rate scheduler with warmup and cosine annealing"""
-    if not num_epochs > warmup_epochs: raise ValueError("num_epochs too small")
-
     def lr_lambda(current:int) -> float:
         if current < warmup_epochs: # Warmup阶段
             return (current + 1) / warmup_epochs
         else: # 余弦退火阶段
-            progress = current / num_epochs
+            progress = current / total_epochs
             return max(0.5 * (1 + np.cos(np.pi * progress)), 0.01)
-    
-    return optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+    return scheduler
 
 ### ---------- 训练 ----------
-def TRAIN(epochs:int, batch_size:int, init_lr:float=2e-3, accumulation:int=1):
-    if not accumulation>=1: raise ValueError("accumulation must be >= 1")
-    print("Training...")
-    # 训练集加载
-    num_classes = 380 # 380 > 373
-    train_dataset = BirdDataset(rootPath+"birdData/train", transform=train_transform)
-    train_loader = DataLoader(train_dataset, batch_size, shuffle=True)
-    print(f"Data Size: {len(train_dataset)},  Batch Num: {len(train_loader)}")
-    
-    # 模型初始化
-    model = BirdNet(num_classes).to(device)
-    
-    # 损失函数与优化器
-    criterion = CEloss_smooth(num_classes)
-    optimizer = optim.AdamW(model.parameters(), init_lr, weight_decay=0.02)
-    scheduler = create_scheduler(optimizer, num_epochs=epochs)
-    
-    for epoch in range(1, epochs+1):
-        model.train()
-        optimizer.zero_grad()
-        epoch_loss = 0.0
-        epoch_accu = 0
+class Trainer():
+    def __init__(self, version:str):
+        self.model = getModel(version, load_weight=False).to(device)
+        self.criterion = CEloss_smooth(self.model.getClassNum())
         
-        for step, (images, labels) in enumerate(train_loader):
-            if torch.cuda.is_available(): torch.cuda.empty_cache()
-            images = images.to(device)
-            labels = labels.to(device)
+    def TRAIN(self, epochs:int, train_batch:int, init_lr:float, accu:int=1, eval_batch:int=0):
+        """Train the model.
+        Args:
+            epochs (int): Num of epochs to train.
+            train_batch (int): Batch size for training. (B = train_batch * accu)
+            init_lr (float): Initial learning rate.
+            accu (int, optional): Num of gradient accumulations. (Default: 1)
+            eval_batch (int, optional): Batch size for evaluation. Same as training batch if 0.
+        """
+        if accu < 1: accu = 1
+        if eval_batch == 0: eval_batch = train_batch
+        start_time = time()
+        print(f"Epochs: {epochs},  Learning Rate: {init_lr},  Batch Size: {train_batch}")
+        # 数据集加载
+        train_dataset = ImageFolder(rootPath+"birdData/train", transform=train_transform)
+        train_loader = DataLoader(train_dataset, train_batch, shuffle=True, num_workers=12)
+        test_dataset = ImageFolder(rootPath+"birdData/val", transform=test_transform)
+        test_loader = DataLoader(test_dataset, eval_batch, shuffle=False, num_workers=12)
+        print(f"Data Size: {len(train_dataset)},  Batch Num: {len(train_loader)}\n")
+        # 优化器 & 学习率调度器
+        optimizer = optim.AdamW(self.model.parameters(), init_lr, weight_decay=0.02)
+        scheduler = create_scheduler(optimizer, total_epochs=epochs)
+        
+        ### 训练循环
+        for epoch in range(1, epochs+1):
+            print(f"Epoch: {epoch} / {epochs}", end=",  ")
+            self.model.train()
+            optimizer.zero_grad()
+            epoch_loss = 0.
+            epoch_accu = 0
             
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-            epoch_loss += loss.item() * images.size(0) #
+            for step, (images, labels) in enumerate(train_loader):
+                images = images.to(device)
+                labels = labels.to(device)
+                
+                outputs = self.model(images)
+                loss = self.criterion(outputs, labels)
+                epoch_loss += loss.item() * images.size(0) # 累计损失
+                _, preds_max = torch.max(outputs, dim=1)
+                epoch_accu += torch.sum(preds_max == labels).item() #
+
+                loss = loss * (images.size(0)/train_batch) / accu # 梯度累积需平均损失
+                loss.backward()
+                if (step+1) % accu == 0 or (step+1) == len(train_loader):
+                    optimizer.step() # 更新参数
+                    optimizer.zero_grad()
+            
+            scheduler.step()
+            epoch_loss = epoch_loss / len(train_dataset)
+            epoch_accu = epoch_accu / len(train_dataset) * 100
+            print(f"Loss: {epoch_loss:.4f},  Accuracy: {epoch_accu:.2f}%")
+            if epoch % 10 == 0:
+                self.eval(test_loader)
+                print(f"Time: {(time()-start_time)/60:.0f} min")
+                self.save(rootPath+f"trained/model_{epoch}.pth")
+
+        print("Training completed")
+
+    @torch.no_grad()
+    def eval(self, test_loader:DataLoader):
+        self.model.eval()
+        total_loss = 0.0
+        total_correct_max, total_correct_top3 = 0, 0
+        for (images, labels) in test_loader:
+            images, labels = images.to(device), labels.to(device)
+            outputs = self.model(images)
+            # 计算损失
+            loss = self.criterion(outputs, labels)
+            total_loss += loss.item() * images.size(0)
+            # 计算准确率，max & top3
             _, preds_max = torch.max(outputs, dim=1)
-            epoch_accu += torch.sum(preds_max == labels).item() #
-
-            loss = loss / accumulation # 梯度累积需平均损失
-            loss.backward()
-            if (step+1) % accumulation == 0 or (step+1) == len(train_loader):
-                optimizer.step() # 更新参数
-                optimizer.zero_grad()
+            total_correct_max += torch.sum(preds_max == labels).item()
+            _, preds_top3 = torch.topk(outputs, k=3, dim=1)
+            correct_mask = torch.eq(preds_top3, labels.view(-1, 1))
+            total_correct_top3 += torch.sum(correct_mask.any(dim=1)).item()
         
-        scheduler.step()
-        epoch_loss = epoch_loss / len(train_dataset)
-        epoch_accu = epoch_accu / len(train_dataset) * 100
-        print(f"Epoch:{epoch}/{epochs},  Loss={epoch_loss:.4f},  Accu={epoch_accu:.2f}%")
-        if epoch % 50 == 0:
-            torch.save(model.state_dict(), rootPath+f"trained/model_{epoch}.pth")
-            print("Model saved\n")
-        if torch.cuda.is_available(): torch.cuda.empty_cache()
-
-    print("Training completed")
+        test_size = len(test_loader.dataset)
+        avg_loss = total_loss / test_size
+        accuracy_max = total_correct_max / test_size
+        accuracy_top3 = total_correct_top3 / test_size
+        print(f"Eval Loss: {avg_loss:.4f}")
+        print(f"Eval Accuracy: top1={accuracy_max*100:.2f}%, top3={accuracy_top3*100:.2f}%")
+    
+    def save(self, path:str):
+        torch.save(self.model.state_dict(), path)
+        print("Model saved\n")
 
 ###
 if __name__ == "__main__":
+    print("Training...")
+    print("Device: ", device)
     rootPath = "./"
-    TRAIN(epochs=300, batch_size=640, init_lr=2e-3, accumulation=2)
+    trainer = Trainer(version="v1base")
+    trainer.TRAIN(epochs=100, train_batch=512, init_lr=1e-3)
+    if torch.cuda.is_available(): torch.cuda.empty_cache()

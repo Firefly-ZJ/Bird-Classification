@@ -17,8 +17,8 @@ class BirdClassifier():
     def __init__(self, version:str):
         """Bird classifier."""
         self.version = version
-        self.device = torch.device("cuda" if torch.cuda.is_available()
-                                   else "xpu" if torch.xpu.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else
+                                   "xpu" if torch.xpu.is_available() else "cpu")
         self.model = _BirdNet.getModel(version, load_weight=True)
         self.model.to(self.device).eval()
         
@@ -211,9 +211,7 @@ class BirdGUI(QMainWindow):
 
 ### ----- 主函数 ----- ###
 if __name__ == "__main__":
-    # Supported Versions:
-    # v1-base: Ver 1.1 (base size)
-    model_version = "v1-base"
+    model_version = "v1large"
     classifier = BirdClassifier(model_version)
     print(classifier)
 

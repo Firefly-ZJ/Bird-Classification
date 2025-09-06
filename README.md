@@ -1,7 +1,7 @@
 # Bird Classification
 **Classifier & dataset for common bird species in China**
 
-## Overview 简介 (Ver 1.0, 2025/07)
+## Overview 简介 (Ver 1.5, 2025/09)
 
 This project aims to classify common bird species in China (373 species) with a CNN. We also provide our image dataset (220k) for training and testing. Besides, we provide a simple GUI for easy classification.
 
@@ -15,9 +15,9 @@ The image dataset is collected from iNaturalist. It contains ~ 220K images of 37
 
 ## Model Details
 
-The model is a CNN network, which imitates the ConvNeXt architecture. Its input should be a 224x224 RGB image.
+The model is a CNN network, adopting the ConvNeXt architecture. Its input should be a 224x224 RGB image.
 
-The latest version (Ver 1.0/1.1) has **~ 12M params**, and accuracy on test set reaches **59.36% (top1) / 72.58% (top3)**.
+The latest basic model (Ver 1.5) has **12M params**, and accuracy on test set reaches **62.16% (top1) / 74.87% (top3)**. Training (100 epochs) takes less than 1 day on an A100 GPU.
 
 ## Usage 如何使用
 
@@ -50,11 +50,17 @@ password：firefly
 - *Tqdm (not necessary for GUI)*
 - *Torchinfo (not necessary for GUI)*
 
-## Updates
+## Main Updates
 
-**Ver 0 -> Ver 1:**
+- **Ver 0.0:** (Abandoned)
 
-We have collected larger dataset and slightly changed the model architecture, and achieved great performance improvement.
+- **Ver 1.0:** (2025/07)
+
+    We have collected a larger dataset and slightly changed the model architecture. The accuracy on test set reaches 62.16% (top1) / 74.87% (top3). **Ver1 is a complete superior replacement for Ver0.**
+
+- **Ver 1.5:** (2025/09)
+
+    We have trained a larger model (33M params) with the same architecture, with accuracy increasing to 65.11% (top1) / 77.08% (top3). We have also slightly improved the GUI.
 
 ## License
 

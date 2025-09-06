@@ -45,6 +45,9 @@ Desktop.ini
 *.csv
 *.json
 
+# ----- Online -----
+server/
+
 ### Specific ###
 # ----- Images -----
 *.jpg
