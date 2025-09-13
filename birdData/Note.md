@@ -5,7 +5,7 @@
 - **Total species**: 373
 - **Test Size**: 20%
 
-![Data distribution](./photo_num.png)
+![Data distribution](./image_num.png)
 
 ## Dataset Link
 

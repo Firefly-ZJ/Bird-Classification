@@ -19,6 +19,8 @@ The model is a CNN network, adopting the ConvNeXt architecture. Its input should
 
 The latest basic model (Ver 1.5) has **12M params**, and accuracy on test set reaches **62.16% (top1) / 74.87% (top3)**. Training (100 epochs) takes less than 1 day on an A100 GPU.
 
+![Training Log](./Training_log.png)
+
 ## Usage 如何使用
 
 - Dataset Link: [*Click Here*](https://disk.pku.edu.cn/link/AABC306D3787554C6BAF4C92652F54D21B)
