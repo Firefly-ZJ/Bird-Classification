@@ -1,19 +1,17 @@
-# Bird Classification
+# Bird Classification with CNN
 **Classifier & dataset for common bird species in China**
 
 ## Overview 简介 (Ver 1.5, 2025/09)
 
 This project aims to classify common bird species in China (373 species) with a CNN. We also provide our image dataset (220k) for training and testing. Besides, we provide a simple GUI for easy classification.
 
---------------------------------------------------
-
 该项目使用了卷积神经网络，以实现对中国常见鸟类（共373种）的图像分类识别，并提供了所使用的图像数据集（22万）。此外，我们提供了一个简单的GUI以方便用户使用。
 
-## Image Dataset
+### Image Dataset
 
 The image dataset is collected from iNaturalist. It contains ~ 220K images of 373 species, and 80% are used for training. Each species has at least 50 iamges. About details, please refer to ``species_list.csv``, and [*Note.md*](./birdData/Note.md).
 
-## Model Details
+### Model Details
 
 The model is a CNN network, adopting the ConvNeXt architecture. Its input should be a 224x224 RGB image.
 
@@ -28,15 +26,21 @@ password：firefly
 
 --------------------------------------------------
 - It's recommended to use Nvidia CUDA decive, while CPU and Intel XPU are also supported.
+
 - **Dataset**: The dataset is available on cloud disk. Download it to ``birdData`` folder and unzip the packages, then you can use it to train your own model.
+
 - **Training**: Run ``_train.py`` to train the model, and then run ``_test.py`` to test trained model. Pretrained model is available in ``trained`` folder.
-- **Classification GUI**: Run ``BirdGUI.py``, and then you can easily classify your own image with our GUI. You can simply drag and drop your image to the window, or select your image from the file dialog.
+
+- **Classification GUI**: Run ``BirdGUI.py`` , and then you can easily classify your own image with our GUI. You can simply drag and drop your image to the window, or select your image from the file dialog. (You may also run ``BirdClassifier.py`` to classify your image, but the GUI is more user-friendly.)
 
 --------------------------------------------------
 - 建议使用英伟达CUDA设备加速计算。同样支持CPU和英特尔XPU计算。
+
 - **数据集**: 您可以从云盘中下载数据集。下载到``birdData``文件夹中并解压后，即可使用它来训练自己的模型。
+
 - **训练**: 运行``_train.py``来训练模型，再运行``_test.py``来测试训练好的模型。预训练模型在``trained``文件夹中。
-- **分类GUI**: 运行``BirdGUI.py``，然后您可以轻松地使用我们的GUI来识别自己的图像。您可以直接将图像拖放到窗口中，或者从文件对话框中选择图像。
+
+- **分类GUI**: 运行``BirdGUI.py``，然后您可以轻松地使用我们的GUI来识别自己的图像。您可以直接将图像拖放到窗口中，或者从文件对话框中选择图像。(也可以运行``BirdClassifier.py``来分类您的图像，但是我们的GUI更加方便易用。)
 
 --------------------------------------------------
 
@@ -48,21 +52,29 @@ password：firefly
 - Torch
 - Torchvision
 - Numpy
+- Pillow (PIL)
 - PyQt5
 - *Tqdm (not necessary for GUI)*
 - *Torchinfo (not necessary for GUI)*
+- *Retrying (only for image downloading from url)*
 
-## Main Updates
+## Versions and Main Updates 版本说明及主要更新
 
-- **Ver 0.0:** (Abandoned)
+### Ver 0.0: (Abandoned)
 
-- **Ver 1.0:** (2025/07)
+### Ver 1.0: (2025/07)
 
-    We have collected a larger dataset and slightly changed the model architecture. The accuracy on test set reaches 62.16% (top1) / 74.87% (top3). **Ver1 is a complete superior replacement for Ver0.**
+**Ver1 is a complete superior replacement for Ver0.**
+    
+We collected a larger dataset and slightly changed the model architecture. It has 3+4+6+3 blocks, and 12M params. The accuracy on test set reaches 62.16% (top1) / 74.87% (top3).
+    
+We trained the model with 100 epochs, and batch size is 512. Training process takes less than 1 day on an A100 80G GPU.
 
-- **Ver 1.5:** (2025/09)
+### Ver 1.5: (2025/09)
 
-    We have trained a larger model (33M params) with the same architecture, with accuracy increasing to 65.11% (top1) / 77.08% (top3). We have also slightly improved the GUI.
+We trained a larger model (3+6+12+3 blocks, 33M params) with the same architecture. The accuracy increases to 65.11% (top1) / 77.08% (top3). We have also slightly improved the GUI.
+
+We trained the model with 100 epochs, and batch size is 256. Training process takes less than 1 days (about 18 hours) on an A100 80G GPU.
 
 ## License
 
